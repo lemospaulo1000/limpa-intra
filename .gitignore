@@ -1,0 +1,38 @@
+## Visual Studio
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+## Build
+bin/
+obj/
+
+## Logs
+*.log
+
+## Rider
+.idea/
+
+## VSCode
+.vscode/
+
+## Windows
+Thumbs.db
+Desktop.ini
+
+## NuGet
+packages/
+*.nupkg
+
+## Build Results
+TestResults/
+
+## VSTO
+*.vsto
+*.manifest
+
+## Temporary
+*.tmp
+*.temp

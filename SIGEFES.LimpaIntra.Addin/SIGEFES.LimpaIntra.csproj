@@ -1,0 +1,22 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<TargetFramework>net8.0</TargetFramework>
+		<OutputType>Library</OutputType>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<Folder Include="LeituraExcel\" />
+		<Folder Include="Util\" />
+		<Folder Include="Saida\" />
+		<Folder Include="Processamento\" />
+		<Folder Include="Servicos\" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<PackageReference Include="NPOI" Version="2.7.6" />
+	</ItemGroup>
+
+</Project>

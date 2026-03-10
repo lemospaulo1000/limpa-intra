@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="../LimparIntras/LimparIntras.csproj" Id="315ff93a-9270-4c59-911c-2db850bb884d" />
+  <Project Path="../SIGEFES.LimpaIntra/SIGEFES.LimpaIntra/SIGEFES.LimpaIntra.csproj" />
+  <Project Path="SIGEFES.LimpaIntra.Addin.csproj" Id="0d03ec73-71e6-4c2e-8974-f0c36d9f3aba" />
+</Solution>
