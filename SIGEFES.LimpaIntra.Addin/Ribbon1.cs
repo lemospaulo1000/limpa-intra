@@ -4,8 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Windows.Forms;
 using Excel = Microsoft.Office.Interop.Excel;
-using SIGEFES.LimpaIntra.LeituraExcel;
-using SIGEFES.LimpaIntra.Processamento;
+using SIGEFES.LimpaIntra.Servicos;
 using SIGEFES.LimpaIntra.Modelos;
 
 namespace SIGEFES.LimpaIntra.Addin
@@ -37,50 +36,26 @@ namespace SIGEFES.LimpaIntra.Addin
 
                 string caminho = dialog.FileName;
 
-                LeitorBalanceteExcel leitor = new LeitorBalanceteExcel();
-                var balancete = leitor.Ler(caminho);
+                MotorLimpaIntra motor = new MotorLimpaIntra();
 
-                Dictionary<long, ContaContabil> original =
-                    balancete.Contas.ToDictionary(
-                        x => x.Key,
-                        x => new ContaContabil
-                        {
-                            Codigo = x.Value.Codigo,
-                            Descricao = x.Value.Descricao,
-                            SaldoInicial = x.Value.SaldoInicial,
-                            Debito = x.Value.Debito,
-                            Credito = x.Value.Credito,
-                            SaldoAtual = x.Value.SaldoAtual,
-                            DC = x.Value.DC
-                        });
+                ResultadoMotor resultado = motor.Processar(caminho);
 
-                List<ContaContabil> intra = new List<ContaContabil>(balancete.ContasIntra);
+                var original = resultado.Original;
+                var processado = resultado.Processado;
+                var intra = resultado.Intra;
 
-                decimal somaIntraAtivo = intra
-                    .Where(x => (x.Codigo / 100000000) == 1)
-                    .Sum(x => x.SaldoAtual);
-
-                decimal somaIntraPassivo = intra
-                    .Where(x => (x.Codigo / 100000000) == 2)
-                    .Sum(x => x.SaldoAtual);
-
-                decimal somaIntraClasse3 = intra
-                    .Where(x => (x.Codigo / 100000000) == 3)
-                    .Sum(x => x.SaldoAtual);
-
-                decimal somaIntraClasse4 = intra
-                    .Where(x => (x.Codigo / 100000000) == 4)
-                    .Sum(x => x.SaldoAtual);
+                decimal somaIntraAtivo = intra.Where(x => (x.Codigo / 100000000) == 1).Sum(x => x.SaldoAtual);
+                decimal somaIntraPassivo = intra.Where(x => (x.Codigo / 100000000) == 2).Sum(x => x.SaldoAtual);
+                decimal somaIntraClasse3 = intra.Where(x => (x.Codigo / 100000000) == 3).Sum(x => x.SaldoAtual);
+                decimal somaIntraClasse4 = intra.Where(x => (x.Codigo / 100000000) == 4).Sum(x => x.SaldoAtual);
 
                 decimal ativoOriginal = original[100000000].SaldoAtual;
                 decimal classe2Original = original[200000000].SaldoAtual;
                 decimal classe3Original = original[300000000].SaldoAtual;
                 decimal classe4Original = original[400000000].SaldoAtual;
 
-                LimpadorIntraOffs.Processar(balancete);
-
-                decimal ativoFinal = balancete.Contas[100000000].SaldoAtual;
-                decimal classe2Final = balancete.Contas[200000000].SaldoAtual;
+                decimal ativoFinal = processado[100000000].SaldoAtual;
+                decimal classe2Final = processado[200000000].SaldoAtual;
 
                 Excel.Workbook wb = app.Workbooks.Add();
 
@@ -115,14 +90,14 @@ namespace SIGEFES.LimpaIntra.Addin
                 foreach (var c in original.Values.OrderBy(x => x.Codigo))
                     EscreverConta(wsOriginal, l1++, c);
 
-                foreach (var c in balancete.Contas.Values.OrderBy(x => x.Codigo))
+                foreach (var c in processado.Values.OrderBy(x => x.Codigo))
                     EscreverConta(wsSemIntra, l2++, c);
 
                 foreach (var c in original.Values.OrderBy(x => x.Codigo))
                 {
-                    if (balancete.Contas.ContainsKey(c.Codigo))
+                    if (processado.ContainsKey(c.Codigo))
                     {
-                        var novo = balancete.Contas[c.Codigo];
+                        var novo = processado[c.Codigo];
 
                         ContaContabil diff = new ContaContabil
                         {
@@ -241,7 +216,6 @@ namespace SIGEFES.LimpaIntra.Addin
             if (codigo % 100000 == 0) return 4;
             return 5;
         }
-
         private void GerarResumo(
     Excel.Worksheet ws,
     decimal ativoOriginal,
@@ -320,7 +294,6 @@ namespace SIGEFES.LimpaIntra.Addin
 
             ws.Columns.AutoFit();
         }
-
         private void GerarResumoGrupos(
     Excel.Worksheet ws,
     Dictionary<long, ContaContabil> contasOriginais,
@@ -337,38 +310,22 @@ namespace SIGEFES.LimpaIntra.Addin
             Dictionary<long, decimal> originalPorGrupo = new Dictionary<long, decimal>();
             Dictionary<long, decimal> intraPorGrupo = new Dictionary<long, decimal>();
 
-            // ==============================
-            // SALDO ORIGINAL DOS GRUPOS
-            // ==============================
             foreach (var c in contasOriginais.Values)
             {
-                // apenas contas de GRUPO (xx000000)
-                if (c.Codigo % 10000000 != 0)
-                    continue;
-
-                // eliminar classes (x00000000)
-                if (c.Codigo % 100000000 == 0)
-                    continue;
+                if (c.Codigo % 10000000 != 0) continue;
+                if (c.Codigo % 100000000 == 0) continue;
 
                 int classe = (int)(c.Codigo / 100000000);
-
-                if (classe > 4)
-                    continue;
+                if (classe > 4) continue;
 
                 long grupo = c.Codigo / 10000000;
-
                 originalPorGrupo[grupo] = c.SaldoAtual;
             }
 
-            // ==============================
-            // SOMA DAS INTRAS POR GRUPO
-            // ==============================
             foreach (var c in contasIntra)
             {
                 int classe = (int)(c.Codigo / 100000000);
-
-                if (classe > 4)
-                    continue;
+                if (classe > 4) continue;
 
                 long grupo = c.Codigo / 10000000;
 
@@ -378,9 +335,6 @@ namespace SIGEFES.LimpaIntra.Addin
                 intraPorGrupo[grupo] += c.SaldoAtual;
             }
 
-            // ==============================
-            // LISTA FINAL DE GRUPOS
-            // ==============================
             var grupos = originalPorGrupo.Keys
                 .Union(intraPorGrupo.Keys)
                 .OrderBy(x => x);
@@ -392,21 +346,17 @@ namespace SIGEFES.LimpaIntra.Addin
                 decimal original = originalPorGrupo.ContainsKey(g) ? originalPorGrupo[g] : 0;
                 decimal intra = intraPorGrupo.ContainsKey(g) ? intraPorGrupo[g] : 0;
 
-                decimal consolidado = original - intra;
-
-                // obter descrição do próprio balancete
                 long codigoGrupo = g * 10000000;
 
-                string descricao = "";
-
-                if (contasOriginais.ContainsKey(codigoGrupo))
-                    descricao = contasOriginais[codigoGrupo].Descricao;
+                string descricao = contasOriginais.ContainsKey(codigoGrupo)
+                    ? contasOriginais[codigoGrupo].Descricao
+                    : "";
 
                 ws.Cells[linha, 1] = g;
                 ws.Cells[linha, 2] = descricao;
                 ws.Cells[linha, 3] = original;
                 ws.Cells[linha, 4] = intra;
-                ws.Cells[linha, 5] = consolidado;
+                ws.Cells[linha, 5] = original - intra;
 
                 linha++;
             }
@@ -415,23 +365,6 @@ namespace SIGEFES.LimpaIntra.Addin
                 "_-* #,##0.00_-;-* #,##0.00_-;_-* \"-\"??_-;_-@_-";
 
             ws.Columns.AutoFit();
-        }
-
-        private string DescricaoGrupo(long grupo)
-        {
-            switch (grupo)
-            {
-                case 11: return "Ativo Circulante";
-                case 12: return "Ativo Não Circulante";
-                case 21: return "Passivo Circulante";
-                case 22: return "Passivo Não Circulante";
-                case 23: return "Patrimônio Líquido";
-                default:
-                    int classe = (int)(grupo / 10);
-                    if (classe == 3) return "Variação Patrimonial Diminutiva";
-                    if (classe == 4) return "Variação Patrimonial Aumentativa";
-                    return "";
-            }
         }
     }
 }
